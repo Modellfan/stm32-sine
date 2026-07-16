@@ -25,7 +25,7 @@
    3. Display values
  */
 //Next param id (increase when adding new parameter!): 164
-//Next value Id: 2058
+//Next value Id: 2059
 /*              category     name         unit       min     max     default id */
 
 #define MOTOR_PARAMETERS_COMMON \
@@ -216,6 +216,7 @@
     VALUE_ENTRY(il2rms,      "A",     2008 ) \
     VALUE_ENTRY(boostcalc,   "dig",   2009 ) \
     VALUE_ENTRY(fweakcalc,   "Hz",    2010 ) \
+    VALUE_ENTRY(motorpower,  "W",     2058 ) \
 
 #define VALUES_FOC \
     VALUE_ENTRY(id,      "A",     2049 ) \

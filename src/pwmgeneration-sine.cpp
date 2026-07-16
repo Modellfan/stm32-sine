@@ -246,6 +246,8 @@ s32fp PwmGeneration::ProcessCurrents()
    static s32fp idcFiltered = 0;
    static int samples[2] = { 0 };
    static EdgeType lastEdge[2] = { PosEdge, PosEdge };
+   static int64_t motorPowerSum = 0;
+   static uint16_t motorPowerSamples = 0;
 
    s32fp il1 = GetCurrent(AnaIn::il1, ilofs[0], Param::Get(Param::il1gain));
    s32fp il2 = GetCurrent(AnaIn::il2, ilofs[1], Param::Get(Param::il2gain));
@@ -271,6 +273,33 @@ s32fp PwmGeneration::ProcessCurrents()
    if (CalcRms(il2, lastEdge[1], currentMax[1], rms, samples[1], il2PrevRms))
    {
       Param::SetFixed(Param::il2rms, rms);
+   }
+
+   /*
+    * Reconstruct instantaneous motor-terminal power from the commanded pole
+    * voltages and the two measured phase currents:
+    *
+    * p = Udc * ((d1 - d3) * i1 + (d2 - d3) * i2)
+    *
+    * i3 = -i1 - i2, so common-mode voltage cancels. Positive power denotes
+    * motoring and negative power denotes regeneration. Publish the arithmetic
+    * mean of all PWM-rate samples every 100 ms without modifying idc.
+    */
+   int32_t duty13 = (int32_t)SineCore::DutyCycles[0] - (int32_t)SineCore::DutyCycles[2];
+   int32_t duty23 = (int32_t)SineCore::DutyCycles[1] - (int32_t)SineCore::DutyCycles[2];
+   int64_t weightedCurrent = (int64_t)duty13 * il1 + (int64_t)duty23 * il2;
+   s32fp equivalentCurrent = (s32fp)(weightedCurrent >> SineCore::BITS);
+   s32fp instantaneousPower = FP_MUL(Param::Get(Param::udc), equivalentCurrent);
+
+   motorPowerSum += instantaneousPower;
+   motorPowerSamples++;
+
+   uint16_t samplesPer100ms = MAX(1, pwmfrq / 10);
+   if (motorPowerSamples >= samplesPer100ms)
+   {
+      Param::SetFixed(Param::motorpower, (s32fp)(motorPowerSum / motorPowerSamples));
+      motorPowerSum = 0;
+      motorPowerSamples = 0;
    }
 
    s32fp ilMax = GetIlMax(il1, il2);
